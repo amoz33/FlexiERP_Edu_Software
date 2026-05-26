@@ -7,3 +7,4 @@ build/
 dist/
 *.node
 node_modules/
+node_modules/

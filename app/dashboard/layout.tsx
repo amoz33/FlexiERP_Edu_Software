@@ -1,28 +1,25 @@
-'use client';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/auth-store';
+'use client'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuthStore } from '@/lib/auth-store'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { isAuthenticated, user, token } = useAuthStore();
-
-  console.log('Dashboard Layout:', { isAuthenticated, user, token });
+  const { isAuthenticated, isLoading } = useAuthStore()
+  const router = useRouter()
 
   useEffect(() => {
-    console.log('Dashboard Layout Effect:', { isAuthenticated, user, token });
-    if (!isAuthenticated) {
-      router.push('/login');
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login')
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router])
 
-  if (!isAuthenticated) {
+  if (isLoading || !isAuthenticated) {
     return (
       <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
         <p>Loading...</p>
       </div>
-    );
+    )
   }
 
-  return <>{children}</>;
+  return <>{children}</>
 }

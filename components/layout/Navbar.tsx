@@ -4,55 +4,64 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Bell, BookOpen, ChevronDown, LogOut, Settings } from 'lucide-react'
-import { useAuthStore } from '@/lib/auth-store'
+import { useAuthStoreMounted } from '@/lib/auth-store'
 import { getInitials } from '@/lib/utils'
 
-const GOLD = '#C9A020'
+const GOLD   = '#C9A020'
 const BORDER = '#E8E4DC'
 
 const notifications = [
-  { id: 'fee-balance-reminder', title: 'Fee Payment Reminder', message: '2nd Term fees due March 15', time: '2 hours ago', isRead: false, type: 'fee' },
-  { id: 'result-published', title: 'Result Published', message: '1st term results available', time: '1 day ago', isRead: false, type: 'result' },
-  { id: 'attendance-alert', title: 'Attendance Alert', message: 'Attendance below 75%', time: '3 days ago', isRead: true, type: 'attendance' },
+  { id: 'fee-balance-reminder', title: 'Fee Payment Reminder',  message: '2nd Term fees due March 15',  time: '2 hours ago', isRead: false, type: 'fee' },
+  { id: 'result-published',     title: 'Result Published',      message: '1st term results available',  time: '1 day ago',   isRead: false, type: 'result' },
+  { id: 'attendance-alert',     title: 'Attendance Alert',      message: 'Attendance below 75%',        time: '3 days ago',  isRead: true,  type: 'attendance' },
 ]
 
 const typeColor: Record<string, string> = {
-  fee: GOLD,
-  result: '#10B981',
+  fee:        GOLD,
+  result:     '#10B981',
   attendance: '#EF4444',
 }
 
 interface NavbarProps {
-  userName?: string
-  userRole?: string
-  userEmail?: string
-  settingsHref?: string
-  getNotificationHref?: (notificationId: string) => string
+  userName?:            string
+  userRole?:            string
+  userEmail?:           string
+  settingsHref?:        string
+  getNotificationHref?: (id: string) => string
 }
 
 function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+    weekday: 'short', month: 'short', day: 'numeric',
+    year: 'numeric',  hour: 'numeric', minute: '2-digit',
   }).format(date)
 }
 
-export default function Navbar({ userName, userRole, userEmail, settingsHref = '/settings', getNotificationHref }: NavbarProps) {
-  const { user, role, logout } = useAuthStore()
-  const [now, setNow] = useState(() => new Date())
+export default function Navbar({
+  userName,
+  userRole,
+  userEmail,
+  settingsHref = '/settings',
+  getNotificationHref,
+}: NavbarProps) {
+
+  // useAuthStoreMounted waits for client hydration before reading localStorage
+  const { user, role, logout, mounted } = useAuthStoreMounted()
+
+  const [now,               setNow]               = useState(() => new Date())
   const [showNotifications, setShowNotifications] = useState(false)
-  const [showProfile, setShowProfile] = useState(false)
-  const [logoFailed, setLogoFailed] = useState(false)
+  const [showProfile,       setShowProfile]       = useState(false)
+  const [logoFailed,        setLogoFailed]        = useState(false)
   const navRef = useRef<HTMLElement>(null)
 
-  const unreadCount = notifications.filter((notification) => !notification.isRead).length
-  const displayName = userName || user?.name || 'Admin User'
-  const displayRole = userRole || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Administrator')
-  const displayEmail = userEmail || user?.email || 'admin@school.edu'
+  const unreadCount = notifications.filter(n => !n.isRead).length
+
+  // Only read user data after client has mounted — avoids hydration mismatch
+  const displayName  = userName  || (mounted ? user?.name  : null) || 'User'
+  const displayRole  = userRole  || (mounted && (user?.role || role)
+    ? ((user?.role ?? role)!).charAt(0).toUpperCase() + ((user?.role ?? role)!).slice(1)
+    : 'Staff')
+  const displayEmail = userEmail || (mounted ? user?.email : null) || ''
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000)
@@ -66,60 +75,34 @@ export default function Navbar({ userName, userRole, userEmail, settingsHref = '
         setShowProfile(false)
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const soften = (element: HTMLElement) => {
-    element.style.background = '#F7F6F3'
-    element.style.borderColor = 'rgba(201,160,32,0.35)'
-  }
-
-  const restore = (element: HTMLElement) => {
-    element.style.background = 'white'
-    element.style.borderColor = BORDER
-  }
+  const soften  = (el: HTMLElement) => { el.style.background = '#F7F6F3'; el.style.borderColor = 'rgba(201,160,32,0.35)' }
+  const restore = (el: HTMLElement) => { el.style.background = 'white';   el.style.borderColor = BORDER }
 
   return (
     <header
       ref={navRef}
       style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 60,
-        height: 64,
-        padding: '0 24px',
-        background: 'white',
-        borderBottom: `1px solid ${BORDER}`,
+        position: 'sticky', top: 0, zIndex: 60, height: 64, padding: '0 24px',
+        background: 'white', borderBottom: `1px solid ${BORDER}`,
         boxShadow: '0 1px 0 rgba(201,160,32,0.22)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 20,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20,
       }}
     >
+      {/* ── Brand ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 220 }}>
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            background: 'rgba(201,160,32,0.12)',
-            border: '1px solid rgba(201,160,32,0.28)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}
-        >
+        <div style={{
+          width: 40, height: 40, borderRadius: 8,
+          background: 'rgba(201,160,32,0.12)', border: '1px solid rgba(201,160,32,0.28)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', flexShrink: 0,
+        }}>
           {!logoFailed ? (
             <Image
-              src="/assets/logo.png"
-              alt="School logo"
-              width={40}
-              height={40}
+              src="/FLEXI_LOGO.png" alt="School logo" width={40} height={40}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               onError={() => setLogoFailed(true)}
             />
@@ -128,110 +111,56 @@ export default function Navbar({ userName, userRole, userEmail, settingsHref = '
           )}
         </div>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#0D0D0D', lineHeight: 1.1 }}>EduManage</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#0D0D0D', lineHeight: 1.1 }}>FlexiSoftware</div>
           <div style={{ fontSize: 12, color: '#6B6660', lineHeight: 1.2 }}>School Administration</div>
         </div>
       </div>
 
+      {/* ── Clock ── */}
       <div style={{ color: '#4B4640', fontSize: 14, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap', flex: 1 }}>
         {formatDateTime(now)}
       </div>
 
+      {/* ── Right actions ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, minWidth: 290 }}>
+
+        {/* Notifications */}
         <div style={{ position: 'relative' }}>
           <button
-            type="button"
-            aria-label="Notifications"
-            onClick={() => {
-              setShowNotifications((value) => !value)
-              setShowProfile(false)
-            }}
-            onMouseEnter={(event) => soften(event.currentTarget)}
-            onMouseLeave={(event) => restore(event.currentTarget)}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              border: `1px solid ${BORDER}`,
-              background: 'white',
-              color: '#0D0D0D',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              position: 'relative',
-              transition: 'all 0.18s ease',
-            }}
+            type="button" aria-label="Notifications"
+            onClick={() => { setShowNotifications(v => !v); setShowProfile(false) }}
+            onMouseEnter={e => soften(e.currentTarget)}
+            onMouseLeave={e => restore(e.currentTarget)}
+            style={{ width: 40, height: 40, borderRadius: 8, border: `1px solid ${BORDER}`, background: 'white', color: '#0D0D0D', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative', transition: 'all 0.18s ease' }}
           >
             <Bell size={18} />
             {unreadCount > 0 && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: -5,
-                  right: -5,
-                  minWidth: 18,
-                  height: 18,
-                  padding: '0 5px',
-                  borderRadius: 999,
-                  background: '#EF4444',
-                  color: 'white',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  lineHeight: '18px',
-                  textAlign: 'center',
-                  border: '2px solid white',
-                }}
-              >
+              <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: '#EF4444', color: 'white', fontSize: 11, fontWeight: 700, lineHeight: '18px', textAlign: 'center', border: '2px solid white' }}>
                 {unreadCount}
               </span>
             )}
           </button>
 
           {showNotifications && (
-            <div
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 48,
-                width: 340,
-                background: 'white',
-                border: `1px solid ${BORDER}`,
-                borderRadius: 8,
-                boxShadow: '0 16px 36px rgba(13,13,13,0.14)',
-                overflow: 'hidden',
-              }}
-            >
+            <div style={{ position: 'absolute', right: 0, top: 48, width: 340, background: 'white', border: `1px solid ${BORDER}`, borderRadius: 8, boxShadow: '0 16px 36px rgba(13,13,13,0.14)', overflow: 'hidden' }}>
               <div style={{ padding: '14px 16px', borderBottom: `1px solid ${BORDER}` }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#0D0D0D' }}>Notifications</div>
                 <div style={{ fontSize: 12, color: '#6B6660', marginTop: 2 }}>{unreadCount} unread updates</div>
               </div>
-              {notifications.map((notification) => (
+              {notifications.map(n => (
                 <Link
-                  key={notification.id}
-                  href={getNotificationHref ? getNotificationHref(notification.id) : `/notifications?notification=${notification.id}`}
+                  key={n.id}
+                  href={getNotificationHref ? getNotificationHref(n.id) : `/notifications?notification=${n.id}`}
                   onClick={() => setShowNotifications(false)}
-                  onMouseEnter={(event) => { event.currentTarget.style.background = '#F7F6F3' }}
-                  onMouseLeave={(event) => { event.currentTarget.style.background = notification.isRead ? 'white' : 'rgba(201,160,32,0.05)' }}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: 'none',
-                    borderBottom: `1px solid ${BORDER}`,
-                    background: notification.isRead ? 'white' : 'rgba(201,160,32,0.05)',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    gap: 10,
-                    fontFamily: 'inherit',
-                    textDecoration: 'none',
-                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#F7F6F3' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = n.isRead ? 'white' : 'rgba(201,160,32,0.05)' }}
+                  style={{ width: '100%', padding: '12px 16px', border: 'none', borderBottom: `1px solid ${BORDER}`, background: n.isRead ? 'white' : 'rgba(201,160,32,0.05)', textAlign: 'left', cursor: 'pointer', display: 'flex', gap: 10, fontFamily: 'inherit', textDecoration: 'none' }}
                 >
-                  <span style={{ width: 8, height: 8, marginTop: 6, borderRadius: 999, background: typeColor[notification.type] || GOLD, flexShrink: 0 }} />
+                  <span style={{ width: 8, height: 8, marginTop: 6, borderRadius: 999, background: typeColor[n.type] || GOLD, flexShrink: 0 }} />
                   <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#0D0D0D' }}>{notification.title}</span>
-                    <span style={{ display: 'block', fontSize: 13, color: '#6B6660', marginTop: 2 }}>{notification.message}</span>
-                    <span style={{ display: 'block', fontSize: 12, color: '#A09080', marginTop: 5 }}>{notification.time}</span>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#0D0D0D' }}>{n.title}</span>
+                    <span style={{ display: 'block', fontSize: 13, color: '#6B6660', marginTop: 2 }}>{n.message}</span>
+                    <span style={{ display: 'block', fontSize: 12, color: '#A09080', marginTop: 5 }}>{n.time}</span>
                   </span>
                 </Link>
               ))}
@@ -239,28 +168,14 @@ export default function Navbar({ userName, userRole, userEmail, settingsHref = '
           )}
         </div>
 
+        {/* Profile */}
         <div style={{ position: 'relative' }}>
           <button
             type="button"
-            onClick={() => {
-              setShowProfile((value) => !value)
-              setShowNotifications(false)
-            }}
-            onMouseEnter={(event) => soften(event.currentTarget)}
-            onMouseLeave={(event) => restore(event.currentTarget)}
-            style={{
-              height: 40,
-              padding: '0 10px 0 8px',
-              borderRadius: 8,
-              border: `1px solid ${BORDER}`,
-              background: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 9,
-              cursor: 'pointer',
-              transition: 'all 0.18s ease',
-              fontFamily: 'inherit',
-            }}
+            onClick={() => { setShowProfile(v => !v); setShowNotifications(false) }}
+            onMouseEnter={e => soften(e.currentTarget)}
+            onMouseLeave={e => restore(e.currentTarget)}
+            style={{ height: 40, padding: '0 10px 0 8px', borderRadius: 8, border: `1px solid ${BORDER}`, background: 'white', display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', transition: 'all 0.18s ease', fontFamily: 'inherit' }}
           >
             <span style={{ width: 28, height: 28, borderRadius: 999, background: GOLD, color: 'white', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {getInitials(displayName)}
@@ -273,19 +188,7 @@ export default function Navbar({ userName, userRole, userEmail, settingsHref = '
           </button>
 
           {showProfile && (
-            <div
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 48,
-                width: 240,
-                background: 'white',
-                border: `1px solid ${BORDER}`,
-                borderRadius: 8,
-                boxShadow: '0 16px 36px rgba(13,13,13,0.14)',
-                overflow: 'hidden',
-              }}
-            >
+            <div style={{ position: 'absolute', right: 0, top: 48, width: 240, background: 'white', border: `1px solid ${BORDER}`, borderRadius: 8, boxShadow: '0 16px 36px rgba(13,13,13,0.14)', overflow: 'hidden' }}>
               <div style={{ padding: 16, borderBottom: `1px solid ${BORDER}` }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#0D0D0D' }}>{displayName}</div>
                 <div style={{ fontSize: 12, color: '#6B6660', marginTop: 2 }}>{displayEmail}</div>
@@ -294,8 +197,8 @@ export default function Navbar({ userName, userRole, userEmail, settingsHref = '
               <Link
                 href={settingsHref}
                 onClick={() => setShowProfile(false)}
-                onMouseEnter={(event) => { event.currentTarget.style.background = '#F7F6F3' }}
-                onMouseLeave={(event) => { event.currentTarget.style.background = 'white' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#F7F6F3' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'white' }}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', color: '#0D0D0D', textDecoration: 'none', fontSize: 14, transition: 'background 0.18s ease' }}
               >
                 <Settings size={16} style={{ color: GOLD }} />
@@ -303,25 +206,10 @@ export default function Navbar({ userName, userRole, userEmail, settingsHref = '
               </Link>
               <button
                 type="button"
-                onClick={logout}
-                onMouseEnter={(event) => { event.currentTarget.style.background = '#FEF2F2' }}
-                onMouseLeave={(event) => { event.currentTarget.style.background = 'white' }}
-                style={{
-                  width: '100%',
-                  border: 'none',
-                  borderTop: `1px solid ${BORDER}`,
-                  background: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '12px 16px',
-                  color: '#991B1B',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  fontSize: 14,
-                  textAlign: 'left',
-                  transition: 'background 0.18s ease',
-                }}
+                onClick={() => logout()}
+                onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'white' }}
+                style={{ width: '100%', border: 'none', borderTop: `1px solid ${BORDER}`, background: 'white', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', color: '#991B1B', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, textAlign: 'left', transition: 'background 0.18s ease' }}
               >
                 <LogOut size={16} />
                 Logout
@@ -329,6 +217,7 @@ export default function Navbar({ userName, userRole, userEmail, settingsHref = '
             </div>
           )}
         </div>
+
       </div>
     </header>
   )

@@ -5,6 +5,8 @@ import { Eye, EyeOff, BookOpen } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth-store'
 import AppFooter from '@/components/layout/AppFooter'
 import toast from 'react-hot-toast'
+import { ApiError } from '@/lib/api/client';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter()
@@ -13,6 +15,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [remember, setRemember] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('edu_remember_email')
@@ -23,24 +26,33 @@ export default function LoginPage() {
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      await login(email, password)
-      if (remember) {
-        localStorage.setItem('edu_remember_email', email)
-      } else {
-        localStorage.removeItem('edu_remember_email')
-      }
-      toast.success('Welcome back!')
-      if (role === 'parent' || role === 'student') {
-        router.push('/portal')
-      } else {
-        router.push('/dashboard')
-      }
-    } catch {
-      toast.error('Invalid credentials. Please try again.')
+  e.preventDefault()
+  try {
+    await login(email, password)
+
+    if (remember) {
+      localStorage.setItem('edu_remember_email', email)
+    } else {
+      localStorage.removeItem('edu_remember_email')
     }
+
+    toast.success('Welcome back!')
+
+    // Read role AFTER login completes
+    const currentRole = useAuthStore.getState().role
+
+  if (currentRole === 'parent' || currentRole === 'student') {
+      window.location.href = '/portal'
+    } else if (currentRole === 'teacher') {
+      window.location.href = '/instructor-dashboard'
+    } else {
+      window.location.href = '/dashboard'
   }
+
+  } catch {
+    toast.error('Invalid credentials. Please try again.')
+  }
+}
 
   return (
     <div className="min-h-screen flex flex-col"
@@ -49,13 +61,15 @@ export default function LoginPage() {
 
       {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center"
-             style={{ background: 'rgba(201,160,32,0.15)', border: '2px solid rgba(201,160,32,0.4)' }}>
-          <BookOpen size={20} style={{ color: '#C9A020' }} />
-        </div>
-        <div>
-          <span className="text-2xl font-bold" style={{ color: '#0D0D0D' }}>EduManage</span>
-          <span className="text-2xl font-bold" style={{ color: '#C9A020' }}>.</span>
+        <div className="flex items-center justify-center">
+          <Image
+            src="/FLEXI_LOGO.png"
+            alt="FlexiSoftware Logo"
+            width={160}
+            height={60}
+            priority
+            className="object-contain"
+          />
         </div>
       </div>
 
